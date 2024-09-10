@@ -14,6 +14,7 @@ type Client struct {
 	Filepath  string
 	Context   context.Context
 	FcmClient *messaging.Client
+	otel      bool
 }
 
 type Message struct {
@@ -24,6 +25,7 @@ type Message struct {
 }
 
 func (s *Client) Initialize(otel bool) error {
+	s.otel = otel
 	opts := []option.ClientOption{option.WithCredentialsFile(s.Filepath)}
 	FirebaseApp, err := firebase.NewApp(s.Context, nil, opts...)
 	if err != nil {
@@ -34,11 +36,14 @@ func (s *Client) Initialize(otel bool) error {
 }
 
 func (s *Client) Send(payload Message, ctx context.Context) {
-	tracer := otel.Tracer("Firebase FCM")
+	if s.otel {
+		tracer := otel.Tracer("Firebase FCM")
 
-	// Start a span for the HTTP request
-	ctx, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient))
-	defer span.End()
+		// Start a span for the HTTP request
+		c, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient))
+		ctx = c
+		defer span.End()
+	}
 	if len(payload.Data) == 0 {
 		payload.Data = make(map[string]string, 1)
 	}
