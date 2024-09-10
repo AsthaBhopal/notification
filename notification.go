@@ -48,6 +48,8 @@ func (s *Client) Send(payload Message, ctx context.Context) {
 			if err != nil {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, err.Error())
+			} else {
+				span.SetStatus(codes.Ok, "success")
 			}
 			span.End()
 		}()
