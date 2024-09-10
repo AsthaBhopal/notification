@@ -6,6 +6,7 @@ import (
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/messaging"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/api/option"
 )
@@ -36,19 +37,26 @@ func (s *Client) Initialize(otel bool) error {
 }
 
 func (s *Client) Send(payload Message, ctx context.Context) {
+	var err error
 	if s.otel {
 		tracer := otel.Tracer("Firebase FCM")
 
 		// Start a span for the HTTP request
 		c, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient))
 		ctx = c
-		defer span.End()
+		defer func() {
+			if err != nil {
+				span.RecordError(err)
+				span.SetStatus(codes.Error, err.Error())
+			}
+			span.End()
+		}()
 	}
 	if len(payload.Data) == 0 {
 		payload.Data = make(map[string]string, 1)
 	}
 	payload.Data["senderId"] = "flow_inhouse"
-	s.FcmClient.Send(ctx, &messaging.Message{
+	_, err = s.FcmClient.Send(ctx, &messaging.Message{
 		Data: payload.Data,
 		Notification: &messaging.Notification{
 			Title: payload.Title,
@@ -56,4 +64,5 @@ func (s *Client) Send(payload Message, ctx context.Context) {
 		},
 		Topic: payload.ClientCode,
 	})
+
 }
