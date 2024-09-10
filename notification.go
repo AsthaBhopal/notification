@@ -2,11 +2,11 @@ package notification
 
 import (
 	"context"
-	"net/http"
 
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/messaging"
-	"github.com/AsthaBhopal/pkgGoAsthaLogs/asthahttp/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/api/option"
 )
 
@@ -23,13 +23,8 @@ type Message struct {
 	Data       map[string]string
 }
 
-func (s *Client) Initialize(otel bool, verboseSpans bool, transport http.RoundTripper) error {
-	opts := []option.ClientOption{option.WithCredentialsFile(s.Filepath), option.WithHTTPClient(asthahttp.InitHttpClient(asthahttp.HttpConfig{
-		OtelHttpTransport: otel,
-		VerboseSpans:      verboseSpans,
-		ServiceName:       "Firebase-Client",
-		BaseTransport:     transport,
-	}))}
+func (s *Client) Initialize(otel bool) error {
+	opts := []option.ClientOption{option.WithCredentialsFile(s.Filepath)}
 	FirebaseApp, err := firebase.NewApp(s.Context, nil, opts...)
 	if err != nil {
 		return err
@@ -39,6 +34,11 @@ func (s *Client) Initialize(otel bool, verboseSpans bool, transport http.RoundTr
 }
 
 func (s *Client) Send(payload Message, ctx context.Context) {
+	tracer := otel.Tracer("Firebase FCM")
+
+	// Start a span for the HTTP request
+	ctx, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
 	if len(payload.Data) == 0 {
 		payload.Data = make(map[string]string, 1)
 	}
