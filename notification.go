@@ -6,6 +6,7 @@ import (
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/messaging"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/api/option"
@@ -42,7 +43,7 @@ func (s *Client) Send(payload Message, ctx context.Context) {
 		tracer := otel.Tracer("Firebase FCM")
 
 		// Start a span for the HTTP request
-		c, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient))
+		c, span := tracer.Start(ctx, "FCM Request", trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attribute.String("peer.service", "FCM")))
 		ctx = c
 		defer func() {
 			if err != nil {
